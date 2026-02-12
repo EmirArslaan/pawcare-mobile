@@ -1,5 +1,5 @@
-// src/screens/adoption/CreateAdoptionScreen.js
-import React, { useState } from 'react';
+// src/screens/lost/CreateLostPetScreen.js
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,24 +9,39 @@ import {
     Image,
     StyleSheet,
     Alert,
-    Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { COLORS } from '../../constants/api';
 import { Button } from '../../components/common';
 import apiClient from '../../api/client';
 
-export default function CreateAdoptionScreen({ navigation }) {
+export default function CreateLostPetScreen({ navigation }) {
     const [formData, setFormData] = useState({
-        title: '',
+        petName: '',
         description: '',
         animalType: 'dog',
-        age: '',
-        gender: 'male',
         locationString: '',
+        lostDate: new Date().toISOString().split('T')[0],
+        contactInfo: '',
     });
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [userLocation, setUserLocation] = useState(null);
+
+    useEffect(() => {
+        // Get user location on mount
+        (async () => {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status === 'granted') {
+                const location = await Location.getCurrentPositionAsync({});
+                setUserLocation({
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                });
+            }
+        })();
+    }, []);
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -53,8 +68,18 @@ export default function CreateAdoptionScreen({ navigation }) {
 
     const handleSubmit = async () => {
         // Validation
-        if (!formData.title.trim() || !formData.locationString.trim()) {
-            Alert.alert('Hata', 'Lütfen başlık ve konum alanlarını doldurun.');
+        if (!formData.petName.trim()) {
+            Alert.alert('Hata', 'Lütfen hayvanın adını girin.');
+            return;
+        }
+
+        if (!formData.locationString.trim()) {
+            Alert.alert('Hata', 'Lütfen son görülme konumunu girin.');
+            return;
+        }
+
+        if (!formData.contactInfo.trim()) {
+            Alert.alert('Hata', 'Lütfen iletişim bilgisi girin.');
             return;
         }
 
@@ -79,21 +104,36 @@ export default function CreateAdoptionScreen({ navigation }) {
                 const uploadRes = await apiClient.post('/upload', formDataImage, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
-                imageUrls.push(uploadRes.data.url);
+                imageUrls.push(uploadRes.data.url || uploadRes.data.imageUrl);
             }
 
+            // Prepare location data - use user's current location or default
+            const lastSeenLocation = userLocation ? {
+                type: 'Point',
+                coordinates: [userLocation.longitude, userLocation.latitude],
+            } : {
+                type: 'Point',
+                coordinates: [28.9784, 41.0082], // Default Istanbul coordinates
+            };
+
             // Create listing
-            await apiClient.post('/adoption', {
-                ...formData,
+            await apiClient.post('/lostpets', {
+                petName: formData.petName,
+                animalType: formData.animalType,
+                description: formData.description || 'Kayıp hayvan',
                 imageUrls,
+                lastSeenLocation,
+                locationString: formData.locationString,
+                lostDate: formData.lostDate,
+                contactInfo: formData.contactInfo,
             });
 
-            Alert.alert('Başarılı', 'İlanınız oluşturuldu!', [
+            Alert.alert('Başarılı', 'Kayıp ilanınız oluşturuldu!', [
                 { text: 'Tamam', onPress: () => navigation.goBack() },
             ]);
         } catch (error) {
-            console.error('Create adoption error:', error);
-            Alert.alert('Hata', 'İlan oluşturulamadı. Lütfen tekrar deneyin.');
+            console.error('Create lost pet error:', error.response?.data || error);
+            Alert.alert('Hata', error.response?.data?.message || 'İlan oluşturulamadı. Lütfen tekrar deneyin.');
         } finally {
             setLoading(false);
         }
@@ -121,7 +161,7 @@ export default function CreateAdoptionScreen({ navigation }) {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-            <Text style={styles.pageTitle}>Sahiplendirme İlanı Oluştur</Text>
+            <Text style={styles.pageTitle}>🚨 Kayıp İlanı Oluştur</Text>
 
             {/* Images */}
             <View style={styles.section}>
@@ -148,15 +188,15 @@ export default function CreateAdoptionScreen({ navigation }) {
                 <Text style={styles.hint}>En fazla 5 fotoğraf ekleyebilirsiniz</Text>
             </View>
 
-            {/* Title */}
+            {/* Pet Name */}
             <View style={styles.section}>
-                <Text style={styles.label}>Başlık *</Text>
+                <Text style={styles.label}>Hayvanın Adı *</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Örn: Sevimli Golden Retriever Yuva Arıyor"
+                    placeholder="Örn: Pamuk, Max"
                     placeholderTextColor={COLORS.gray[400]}
-                    value={formData.title}
-                    onChangeText={(text) => setFormData({ ...formData, title: text })}
+                    value={formData.petName}
+                    onChangeText={(text) => setFormData({ ...formData, petName: text })}
                 />
             </View>
 
@@ -170,68 +210,40 @@ export default function CreateAdoptionScreen({ navigation }) {
                 </View>
             </View>
 
-            {/* Age */}
+            {/* Lost Date */}
             <View style={styles.section}>
-                <Text style={styles.label}>Yaş</Text>
+                <Text style={styles.label}>Kaybolma Tarihi *</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Örn: 2 yaş, 6 aylık, Yavru"
+                    placeholder="YYYY-MM-DD (Örn: 2024-12-07)"
                     placeholderTextColor={COLORS.gray[400]}
-                    value={formData.age}
-                    onChangeText={(text) => setFormData({ ...formData, age: text })}
+                    value={formData.lostDate}
+                    onChangeText={(text) => setFormData({ ...formData, lostDate: text })}
                 />
-            </View>
-
-            {/* Gender */}
-            <View style={styles.section}>
-                <Text style={styles.label}>Cinsiyet</Text>
-                <View style={styles.genderButtons}>
-                    <TouchableOpacity
-                        style={[
-                            styles.genderButton,
-                            formData.gender === 'male' && styles.genderButtonActive,
-                        ]}
-                        onPress={() => setFormData({ ...formData, gender: 'male' })}
-                    >
-                        <Text style={styles.genderEmoji}>♂️</Text>
-                        <Text
-                            style={[
-                                styles.genderText,
-                                formData.gender === 'male' && styles.genderTextActive,
-                            ]}
-                        >
-                            Erkek
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[
-                            styles.genderButton,
-                            formData.gender === 'female' && styles.genderButtonActive,
-                        ]}
-                        onPress={() => setFormData({ ...formData, gender: 'female' })}
-                    >
-                        <Text style={styles.genderEmoji}>♀️</Text>
-                        <Text
-                            style={[
-                                styles.genderText,
-                                formData.gender === 'female' && styles.genderTextActive,
-                            ]}
-                        >
-                            Dişi
-                        </Text>
-                    </TouchableOpacity>
-                </View>
             </View>
 
             {/* Location */}
             <View style={styles.section}>
-                <Text style={styles.label}>Konum *</Text>
+                <Text style={styles.label}>Son Görülme Yeri *</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Örn: İstanbul, Kadıköy"
+                    placeholder="Örn: İstanbul, Kadıköy, Moda Parkı yanı"
                     placeholderTextColor={COLORS.gray[400]}
                     value={formData.locationString}
                     onChangeText={(text) => setFormData({ ...formData, locationString: text })}
+                />
+            </View>
+
+            {/* Contact Info */}
+            <View style={styles.section}>
+                <Text style={styles.label}>İletişim Bilgisi *</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Telefon numarası veya e-posta"
+                    placeholderTextColor={COLORS.gray[400]}
+                    value={formData.contactInfo}
+                    onChangeText={(text) => setFormData({ ...formData, contactInfo: text })}
+                    keyboardType="phone-pad"
                 />
             </View>
 
@@ -240,7 +252,7 @@ export default function CreateAdoptionScreen({ navigation }) {
                 <Text style={styles.label}>Açıklama</Text>
                 <TextInput
                     style={[styles.input, styles.textArea]}
-                    placeholder="Hayvan hakkında detaylı bilgi..."
+                    placeholder="Hayvanın özellikleri, nasıl kaybolduğu vb..."
                     placeholderTextColor={COLORS.gray[400]}
                     value={formData.description}
                     onChangeText={(text) => setFormData({ ...formData, description: text })}
@@ -252,11 +264,11 @@ export default function CreateAdoptionScreen({ navigation }) {
 
             {/* Submit */}
             <Button
-                title="İlanı Yayınla"
+                title="Kayıp İlanı Yayınla"
                 onPress={handleSubmit}
                 loading={loading}
                 size="large"
-                style={{ marginTop: 8, marginBottom: 24 }}
+                style={{ marginTop: 8, marginBottom: 24, backgroundColor: COLORS.danger }}
             />
         </ScrollView>
     );
@@ -273,7 +285,7 @@ const styles = StyleSheet.create({
     pageTitle: {
         fontSize: 22,
         fontWeight: '700',
-        color: COLORS.gray[900],
+        color: COLORS.danger,
         marginBottom: 20,
     },
     section: {
@@ -337,7 +349,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 2,
         borderStyle: 'dashed',
-        borderColor: COLORS.gray[300],
+        borderColor: COLORS.danger + '60',
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: COLORS.white,
@@ -368,8 +380,8 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     typeButtonActive: {
-        backgroundColor: COLORS.primary[50],
-        borderColor: COLORS.primary[500],
+        backgroundColor: COLORS.danger + '15',
+        borderColor: COLORS.danger,
     },
     typeButtonEmoji: {
         fontSize: 18,
@@ -380,39 +392,7 @@ const styles = StyleSheet.create({
         color: COLORS.gray[700],
     },
     typeButtonTextActive: {
-        color: COLORS.primary[600],
-        fontWeight: '600',
-    },
-    // Gender buttons
-    genderButtons: {
-        flexDirection: 'row',
-    },
-    genderButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: COLORS.gray[300],
-        paddingVertical: 12,
-        marginRight: 8,
-        borderRadius: 8,
-    },
-    genderButtonActive: {
-        backgroundColor: COLORS.secondary[50],
-        borderColor: COLORS.secondary[500],
-    },
-    genderEmoji: {
-        fontSize: 16,
-        marginRight: 6,
-    },
-    genderText: {
-        fontSize: 14,
-        color: COLORS.gray[700],
-    },
-    genderTextActive: {
-        color: COLORS.secondary[600],
+        color: COLORS.danger,
         fontWeight: '600',
     },
 });

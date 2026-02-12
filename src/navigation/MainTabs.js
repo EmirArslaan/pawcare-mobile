@@ -12,6 +12,7 @@ import AdoptionDetailScreen from '../screens/adoption/AdoptionDetailScreen';
 import CreateAdoptionScreen from '../screens/adoption/CreateAdoptionScreen';
 import LostPetListScreen from '../screens/lost/LostPetListScreen';
 import LostPetDetailScreen from '../screens/lost/LostPetDetailScreen';
+import CreateLostPetScreen from '../screens/lost/CreateLostPetScreen';
 import ForumListScreen from '../screens/forum/ForumListScreen';
 import ForumDetailScreen from '../screens/forum/ForumDetailScreen';
 import CreatePostScreen from '../screens/forum/CreatePostScreen';
@@ -69,6 +70,11 @@ function LostPetsStack() {
                 name="LostPetDetail"
                 component={LostPetDetailScreen}
                 options={{ title: 'Kayıp İlanı' }}
+            />
+            <Stack.Screen
+                name="CreateLostPet"
+                component={CreateLostPetScreen}
+                options={{ title: 'Kayıp İlanı Oluştur' }}
             />
         </Stack.Navigator>
     );

@@ -16,7 +16,6 @@ import { useAuthStore } from '../../store/authStore';
 import apiClient from '../../api/client';
 
 export default function ProfileScreen({ navigation }) {
-    const [activeTab, setActiveTab] = useState('adoptions');
     const [data, setData] = useState({
         adoptions: [],
         lostPets: [],
@@ -98,59 +97,62 @@ export default function ProfileScreen({ navigation }) {
         return <LoadingSpinner message="Profil yükleniyor..." />;
     }
 
-    const Tab = ({ id, title, count }) => (
-        <TouchableOpacity
-            style={[styles.tab, activeTab === id && styles.tabActive]}
-            onPress={() => setActiveTab(id)}
-        >
-            <Text style={[styles.tabText, activeTab === id && styles.tabTextActive]}>
-                {title} ({count})
-            </Text>
-        </TouchableOpacity>
+    // Check if user has any ads (adoptions or lost pets)
+    const hasNoAds = data.adoptions.length === 0 && data.lostPets.length === 0;
+
+    // Render My Ownership Ads Section
+    const renderAdoptionsSection = () => (
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🐾 My Ownership Ads</Text>
+            {data.adoptions.length === 0 ? (
+                <Text style={styles.sectionEmptyText}>No ownership ads yet</Text>
+            ) : (
+                data.adoptions.map((item) => (
+                    <AdoptionCard
+                        key={item._id}
+                        listing={item}
+                        onPress={() => navigation.navigate('AdoptionDetail', { id: item._id })}
+                    />
+                ))
+            )}
+        </View>
     );
 
-    const renderContent = () => {
-        switch (activeTab) {
-            case 'adoptions':
-                return data.adoptions.length === 0 ? (
-                    <EmptyState text="Henüz sahiplendirme ilanınız yok." />
-                ) : (
-                    data.adoptions.map((item) => (
-                        <AdoptionCard
-                            key={item._id}
-                            listing={item}
-                            onPress={() => navigation.navigate('AdoptionDetail', { id: item._id })}
-                        />
-                    ))
-                );
-            case 'lostPets':
-                return data.lostPets.length === 0 ? (
-                    <EmptyState text="Henüz kayıp ilanınız yok." />
-                ) : (
-                    data.lostPets.map((item) => (
-                        <LostPetCard
-                            key={item._id}
-                            listing={item}
-                            onPress={() => navigation.navigate('LostPetDetail', { id: item._id })}
-                        />
-                    ))
-                );
-            case 'forumPosts':
-                return data.forumPosts.length === 0 ? (
-                    <EmptyState text="Henüz forum konunuz yok." />
-                ) : (
-                    data.forumPosts.map((item) => (
-                        <ForumPostCard
-                            key={item._id}
-                            post={item}
-                            onPress={() => navigation.navigate('ForumDetail', { id: item._id })}
-                        />
-                    ))
-                );
-            default:
-                return null;
-        }
-    };
+    // Render My Lost Ads Section
+    const renderLostPetsSection = () => (
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🚨 My Lost Ads</Text>
+            {data.lostPets.length === 0 ? (
+                <Text style={styles.sectionEmptyText}>No lost pet ads yet</Text>
+            ) : (
+                data.lostPets.map((item) => (
+                    <LostPetCard
+                        key={item._id}
+                        listing={item}
+                        onPress={() => navigation.navigate('LostPetDetail', { id: item._id })}
+                    />
+                ))
+            )}
+        </View>
+    );
+
+    // Render Forum Posts Section
+    const renderForumSection = () => (
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>💬 My Forum Posts</Text>
+            {data.forumPosts.length === 0 ? (
+                <Text style={styles.sectionEmptyText}>No forum posts yet</Text>
+            ) : (
+                data.forumPosts.map((item) => (
+                    <ForumPostCard
+                        key={item._id}
+                        post={item}
+                        onPress={() => navigation.navigate('ForumDetail', { id: item._id })}
+                    />
+                ))
+            )}
+        </View>
+    );
 
     return (
         <ScrollView
@@ -188,16 +190,19 @@ export default function ProfileScreen({ navigation }) {
                 </View>
             </View>
 
-            {/* Tabs */}
-            <View style={styles.tabs}>
-                <Tab id="adoptions" title="🐾 Sahiplendirme" count={data.adoptions.length} />
-                <Tab id="lostPets" title="🚨 Kayıp" count={data.lostPets.length} />
-                <Tab id="forumPosts" title="💬 Forum" count={data.forumPosts.length} />
-            </View>
-
-            {/* Content */}
+            {/* Ads Sections */}
             <View style={styles.content}>
-                {renderContent()}
+                {hasNoAds ? (
+                    <EmptyState text="You currently have no ads" />
+                ) : (
+                    <>
+                        {renderAdoptionsSection()}
+                        {renderLostPetsSection()}
+                    </>
+                )}
+
+                {/* Forum Section - Always show separately */}
+                {renderForumSection()}
             </View>
 
             {/* Logout Button */}
@@ -308,35 +313,28 @@ const styles = StyleSheet.create({
         width: 1,
         backgroundColor: COLORS.white + '40',
     },
-    // Tabs
-    tabs: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        marginTop: 16,
-        marginBottom: 8,
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: 12,
-        alignItems: 'center',
-        backgroundColor: COLORS.white,
-        borderRadius: 8,
-        marginHorizontal: 4,
-    },
-    tabActive: {
-        backgroundColor: COLORS.primary[500],
-    },
-    tabText: {
-        fontSize: 12,
-        color: COLORS.gray[700],
-        fontWeight: '500',
-    },
-    tabTextActive: {
-        color: COLORS.white,
-    },
     // Content
     content: {
         padding: 16,
+        marginTop: 16,
+    },
+    // Sections
+    section: {
+        marginBottom: 24,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: COLORS.gray[900],
+        marginBottom: 12,
+    },
+    sectionEmptyText: {
+        fontSize: 14,
+        color: COLORS.gray[500],
+        backgroundColor: COLORS.white,
+        padding: 16,
+        borderRadius: 12,
+        textAlign: 'center',
     },
     // Empty State
     emptyState: {

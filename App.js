@@ -410,7 +410,7 @@ function MapScreen() {
   };
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (!result.canceled && result.assets[0]) {
       setNewPoint({ ...newPoint, imageUri: result.assets[0].uri });
     }
@@ -892,7 +892,7 @@ function CreateAdoptionScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const pickImages = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, quality: 0.8 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.8 });
     if (!result.canceled) {
       setImages(result.assets.map(a => a.uri));
     }
@@ -1040,7 +1040,7 @@ function CreateLostPetScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const pickImages = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, quality: 0.8 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.8 });
     if (!result.canceled) {
       setImages(result.assets.map(a => a.uri));
     }
@@ -1062,7 +1062,12 @@ function CreateLostPetScreen({ navigation }) {
       }
       // Use current date if not specified
       const lostDate = form.lostDate || new Date().toISOString().split('T')[0];
-      await apiClient.post('/lostpets', { ...form, lostDate, imageUrls });
+      // Add lastSeenLocation with default Istanbul coordinates
+      const lastSeenLocation = {
+        type: 'Point',
+        coordinates: [28.9784, 41.0082],
+      };
+      await apiClient.post('/lostpets', { ...form, lostDate, imageUrls, lastSeenLocation });
       Alert.alert('Başarılı', 'Kayıp ilanı oluşturuldu!');
       navigation.goBack();
     } catch (e) {
